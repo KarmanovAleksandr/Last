@@ -1,19 +1,23 @@
-import pika
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 from redis import asyncio as aioredis
-from .settings import settings
+
 from .api import router
+from .models.auth import User
 from .rabbit import add_message, read_message
+from .rabbit import message
+from .services.auth import get_current_user
+from .settings import settings
 
 app = FastAPI()
 
 app.include_router(router)
 
+
 @app.get("/")
 def say_hello():
-    return {"message": "server is working"}
+    return message
 
 
 @app.on_event("startup")
@@ -23,12 +27,12 @@ async def startup_event():
 
 
 @app.post("/add_queue")
-def msg(text):
+def msg(text, user: User = Depends(get_current_user)):
     add_message(text)
     return {"text adding": "completed"}
 
-@app.get("/read_queue")
-def read():
-    read_message()
-    return {"message reading" : "started"}
 
+@app.get("/read_queue")
+def read(user: User = Depends(get_current_user)):
+    read_message()
+    return {"message reading": "started"}
